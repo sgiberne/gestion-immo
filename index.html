@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestion immo</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <strong class="brand">Gestion immo</strong>
+        <nav id="nav">
+          <a href="#/" data-route="">Accueil</a>
+          <a href="#/operations" data-route="operations">Opérations</a>
+          <a href="#/recurrentes" data-route="recurrentes">Récurrentes</a>
+          <a href="#/categories" data-route="categories">Catégories</a>
+          <a href="#/logements" data-route="logements">Logements</a>
+        </nav>
+        <label class="prop">Logement
+          <select id="property"></select>
+        </label>
+      </div>
+    </header>
+    <main id="view"></main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
