@@ -1,0 +1,29 @@
+#!/bin/sh
+# Vérifications avant chaque commit : types (tsc), lint, tests. Un échec bloque le commit.
+# Contourner exceptionnellement : git commit --no-verify
+# Activé par `npm install` (script "prepare" : git config core.hooksPath .githooks).
+
+# Les interfaces graphiques de git (VS Code…) n'ont pas toujours node dans leur PATH.
+PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# Un commit qui ne touche que de la documentation n'a rien à vérifier.
+if ! git diff --cached --name-only | grep -qE '\.(ts|js|json|html|css)$|^\.githooks/'; then
+  echo "pre-commit : aucun fichier de code modifié, vérifications ignorées."
+  exit 0
+fi
+
+run() {
+  echo "pre-commit : $1…"
+  shift
+  if ! "$@"; then
+    echo "pre-commit : échec — commit annulé (corrigez, ou git commit --no-verify pour forcer)." >&2
+    exit 1
+  fi
+}
+
+run "types (tsc)" npx tsc
+run "lint" npm run lint --silent
+run "tests" npm test --silent
+echo "pre-commit : tout est vert."
