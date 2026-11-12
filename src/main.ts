@@ -1,5 +1,5 @@
 import { loadProperties, setCurrent, state } from "./state";
-import { renderCategories, renderHome, renderOperations, renderProperties, renderRecurrences } from "./pages";
+import { renderCategories, renderDocuments, renderHome, renderOperations, renderProperties, renderRecurrences } from "./pages";
 import { $, escapeHtml } from "./util";
 
 const view = $<HTMLElement>(document, "#view");
@@ -17,6 +17,7 @@ const routes: Record<string, (box: HTMLElement) => Promise<void>> = {
   operations: renderOperations,
   recurrentes: renderRecurrences,
   categories: renderCategories,
+  documents: renderDocuments,
   logements: (box) => renderProperties(box, renderMenu),
 };
 

@@ -17,7 +17,8 @@
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
-    "express": "^4.21.0"
+    "express": "^4.21.0",
+    "pdfjs-dist": "^6.5.438"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
