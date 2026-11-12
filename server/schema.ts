@@ -46,6 +46,18 @@ export function migrate(): void {
       label       TEXT NOT NULL,
       cents       INTEGER NOT NULL CHECK (cents > 0)
     );
+    -- Documents du site externe déjà relevés (seen = 0 : nouveau, pas encore vu par l'utilisateur)
+    CREATE TABLE IF NOT EXISTS external_documents (
+      id       TEXT PRIMARY KEY,
+      title    TEXT NOT NULL,
+      doc_date TEXT NOT NULL,
+      folder   TEXT NOT NULL,
+      seen     INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS external_state (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
 
   // Colonnes ajoutées après coup

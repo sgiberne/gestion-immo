@@ -26,8 +26,12 @@ export interface TestServer {
   stop(): Promise<void>;
 }
 
-/** `seed` permet de préparer le dossier de données (ex. une ancienne base) avant le démarrage. */
-export async function startTestServer(seed?: (dir: string) => void): Promise<TestServer> {
+/**
+ * `seed` permet de préparer le dossier de données (ex. une ancienne base) avant le démarrage ;
+ * `env` ajoute des variables d'environnement. Le site externe est désactivé par défaut (valeurs vides,
+ * qui l'emportent sur le vrai fichier .env).
+ */
+export async function startTestServer(seed?: (dir: string) => void, env: Record<string, string> = {}): Promise<TestServer> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "immo-test-"));
   seed?.(dir);
   const port = await freePort();
@@ -35,7 +39,15 @@ export async function startTestServer(seed?: (dir: string) => void): Promise<Tes
   let exited = false;
   const proc = spawn(process.execPath, ["--import", "tsx", "server/index.ts"], {
     cwd: root,
-    env: { ...process.env, PORT: String(port), DATA_DIR: dir },
+    env: {
+      ...process.env,
+      SYNDIC_SITE_URL: "",
+      SYNDIC_SITE_USER: "",
+      SYNDIC_SITE_PASSWORD: "",
+      ...env,
+      PORT: String(port),
+      DATA_DIR: dir,
+    },
   });
   proc.stdout.on("data", (d) => (output += d));
   proc.stderr.on("data", (d) => (output += d));

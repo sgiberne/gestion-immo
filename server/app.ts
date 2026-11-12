@@ -5,6 +5,7 @@ import { generateRecurrences } from "./recurrenceService";
 import { categoriesRouter } from "./routes/categories";
 import { dataTransferRouter } from "./routes/dataTransfer";
 import { documentsRouter } from "./routes/documents";
+import { externalRouter } from "./routes/external";
 import { entriesRouter } from "./routes/entries";
 import { propertiesRouter } from "./routes/properties";
 import { recurrencesRouter } from "./routes/recurrences";
@@ -35,7 +36,7 @@ export function createApp(): express.Express {
     generateRecurrences();
     next();
   });
-  app.use("/api", propertiesRouter, categoriesRouter, entriesRouter, recurrencesRouter, dataTransferRouter, documentsRouter);
+  app.use("/api", propertiesRouter, categoriesRouter, entriesRouter, recurrencesRouter, dataTransferRouter, documentsRouter, externalRouter);
   app.use("/api", errorHandler);
 
   if (fs.existsSync(distDir)) app.use(express.static(distDir));

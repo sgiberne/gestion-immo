@@ -46,3 +46,13 @@ export function upsertEntry(
     e.id, propertyId, categoryId, e.kind, e.date, e.label, e.cents, recurrenceId,
   );
 }
+
+/** Une opération identique (logement, catégorie, type, date, libellé, montant) existe-t-elle déjà ? */
+export function entryExists(
+  propertyId: string, categoryId: string, e: ReturnType<typeof cleanEntry>,
+): boolean {
+  return !!row(
+    "SELECT id FROM entries WHERE property_id = ? AND category_id = ? AND kind = ? AND date = ? AND label = ? AND cents = ?",
+    propertyId, categoryId, e.kind, e.date, e.label, e.cents,
+  );
+}

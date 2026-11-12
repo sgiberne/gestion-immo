@@ -75,8 +75,12 @@ export function useTestServer(): Api {
 }
 
 /** Serveur éphémère pour un seul test (base neuve, ou préparée par `seed`), arrêté et nettoyé ensuite. */
-export async function withTestServer(fn: (api: Api) => Promise<void>, seed?: (dir: string) => void): Promise<void> {
-  const srv = await startTestServer(seed);
+export async function withTestServer(
+  fn: (api: Api) => Promise<void>,
+  seed?: (dir: string) => void,
+  env?: Record<string, string>,
+): Promise<void> {
+  const srv = await startTestServer(seed, env);
   try {
     await fn(new Api(srv.base));
   } finally {

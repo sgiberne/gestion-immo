@@ -4,6 +4,7 @@ import { createApp } from "./app";
 import { backupDir, dbFile, port } from "./config";
 import { backupDatabase } from "./dailyBackup";
 import { openDb } from "./db";
+import { startExternalWatch } from "./externalWatch";
 import { generateRecurrences } from "./recurrenceService";
 import { migrate } from "./schema";
 
@@ -12,5 +13,6 @@ backupDatabase(dbFile, backupDir); // avant l'ouverture : on copie la base telle
 openDb(dbFile);
 migrate();
 generateRecurrences();
+startExternalWatch();
 
 createApp().listen(port, () => console.log(`Gestion immo : http://localhost:${port}  (base : ${dbFile})`));

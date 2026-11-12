@@ -96,3 +96,10 @@ td input.edit { width: 100%; box-sizing: border-box; }
 /* Pagination par année (historique des opérations) */
 .pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .pager .muted { margin: 0 0 0 auto; }
+
+/* Pastille de notification (menu Documents) */
+.pill { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #dc2626; color: #fff; font-size: .75rem; line-height: 18px; text-align: center; }
+.pill[hidden] { display: none; }
+.new-docs { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
+.new-docs ul { margin: 6px 0; }
+#new-docs .muted { margin-top: 16px; }
