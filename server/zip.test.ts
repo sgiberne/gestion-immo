@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readZip } from "./fixtures/zip";
-import { createZip } from "./zip";
+import { createZip, safeName } from "./zip";
 
 describe("createZip", () => {
   it("range les fichiers avec leur contenu, leur nom (accents compris) et un CRC correct", () => {
@@ -16,5 +16,23 @@ describe("createZip", () => {
 
   it("produit une archive valide même sans fichier", () => {
     expect(readZip(createZip([]))).toEqual([]);
+  });
+});
+
+describe("safeName", () => {
+  it("remplace les séparateurs et caractères interdits", () => {
+    expect(safeName('a/b\\c:d*e?"f<g>h|i')).toBe("a-b-c-d-e--f-g-h-i");
+  });
+
+  it("neutralise « . », « .. » et les points ou espaces en fin de nom (pas de sortie du dossier)", () => {
+    expect(safeName("..")).toBe("document");
+    expect(safeName(".")).toBe("document");
+    expect(safeName("  ")).toBe("document");
+    expect(safeName("Classeur. ")).toBe("Classeur");
+    expect(safeName("../..")).toBe("..-");
+  });
+
+  it("garde un nom ordinaire tel quel", () => {
+    expect(safeName("Règlement 2025")).toBe("Règlement 2025");
   });
 });

@@ -46,8 +46,9 @@ describe("documents du site externe", () => {
   const withFakeSite = async (
     fn: (api: Api, site: FakeExtranet) => Promise<void>,
     creds: { user: string; password: string } = { user: FAKE_USER, password: FAKE_PASSWORD },
+    siteOptions: { redirectLogin?: boolean; maxPageSize?: number } = {},
   ) => {
-    const site = await startFakeExtranet();
+    const site = await startFakeExtranet(siteOptions);
     try {
       await withTestServer((api) => fn(api, site), undefined, {
         SYNDIC_SITE_URL: site.url,
@@ -193,6 +194,79 @@ describe("documents du site externe", () => {
         "Divers/2025-01-02 - Règlement.pdf",
       ]);
       expect(files.every((f) => f.crcOk && f.data.subarray(0, 5).toString() === "%PDF-")).toBe(true);
+    });
+  });
+
+  it("lit toutes les pages d'un classeur (plus de 100 documents)", async () => {
+    await withFakeSite(async (api, site) => {
+      for (let i = 0; i < 150; i++) site.addDocument(1000 + i, `Document ${i}`, "2020-01-01");
+      const list = (await api.get("/api/external/documents")).body.documents;
+      expect(list).toHaveLength(3 + 150); // les 3 PDF du faux site + 150 ajoutés (l'image est ignorée)
+    });
+  });
+
+  it("garde un document sans date (date vide, « sans date » dans l'archive) mais ne l'importe pas", async () => {
+    await withFakeSite(async (api, site) => {
+      site.addDocument(106, "APPEL DE FONDS SANS DATE", null);
+      const list = (await api.get("/api/external/documents")).body.documents;
+      expect(list.find((d: any) => d.id === "106")).toMatchObject({ date: "" });
+
+      const pid = await api.property("Copro");
+      const report = (await api.post(`/api/properties/${pid}/external/import-fund-calls`)).body;
+      expect(report.failed).toEqual([{ title: "APPEL DE FONDS SANS DATE", error: expect.stringContaining("sans date") }]);
+      expect(report.added).toHaveLength(2);
+      expect(await api.entries(pid)).toHaveLength(2);
+
+      const res = await fetch(`${api.base}/api/external/documents/download-all`);
+      const names = readZip(Buffer.from(await res.arrayBuffer())).map((f) => f.name);
+      expect(names).toContain("Appels/sans date - APPEL DE FONDS SANS DATE.pdf");
+    });
+  });
+
+  it("ne réimporte pas un appel de fonds déjà ajouté à la main sous un autre libellé", async () => {
+    await withFakeSite(async (api) => {
+      const pid = await api.property("Copro");
+      await api.post(`/api/properties/${pid}/documents/fund-call`, { label: "Mon libellé", date: "2026-09-21", cents: 48540 });
+      const report = (await api.post(`/api/properties/${pid}/external/import-fund-calls`)).body;
+      expect(report.alreadyThere).toBe(1);
+      expect(report.added.map((a: any) => a.date)).toEqual(["2026-07-08"]);
+      expect(await api.entries(pid)).toHaveLength(2);
+    });
+  });
+
+  it("accepte une authentification qui répond par une redirection (le cookie est conservé)", async () => {
+    await withFakeSite(async (api) => {
+      const r = await api.get("/api/external/documents");
+      expect(r.status).toBe(200);
+      expect(r.body.documents).toHaveLength(3);
+    }, undefined, { redirectLogin: true });
+  });
+
+  it("lit tout un classeur même si le site plafonne la taille de page", async () => {
+    await withFakeSite(async (api, site) => {
+      for (let i = 0; i < 120; i++) site.addDocument(2000 + i, `Document ${i}`, "2020-01-01");
+      const list = (await api.get("/api/external/documents")).body.documents;
+      expect(list).toHaveLength(3 + 120);
+      expect(new Set(list.map((d: any) => d.id)).size).toBe(list.length);
+    }, undefined, { maxPageSize: 50 });
+  });
+
+  it("importe deux appels de fonds du même jour et du même montant, et recrée celui qu'on a supprimé", async () => {
+    await withFakeSite(async (api, site) => {
+      site.addDocument(107, "APPEL DE FONDS TRAVAUX A", "2027-02-01");
+      site.addDocument(108, "APPEL DE FONDS TRAVAUX B", "2027-02-01");
+      const pid = await api.property("Copro");
+      const url = `/api/properties/${pid}/external/import-fund-calls`;
+      expect((await api.post(url)).body.added).toHaveLength(4);
+      expect((await api.post(url)).body).toMatchObject({ added: [], alreadyThere: 4 });
+
+      const sameDay = (await api.entries(pid)).filter((e: any) => e.date === "2027-02-01");
+      expect(sameDay).toHaveLength(2);
+      expect((await api.del(`/api/entries/${sameDay[0].id}`)).status).toBeLessThan(300);
+      const again = (await api.post(url)).body;
+      expect(again.added).toHaveLength(1);
+      expect(again.alreadyThere).toBe(3);
+      expect(await api.entries(pid)).toHaveLength(4);
     });
   });
 });

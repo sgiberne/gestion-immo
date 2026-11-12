@@ -97,8 +97,10 @@ function renderExternal(box: HTMLElement, propertyId: string): void {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(await res.blob());
       link.download = `documents-${today()}.zip`;
+      document.body.append(link);
       link.click();
-      URL.revokeObjectURL(link.href);
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 60_000); // laisse le navigateur démarrer l'enregistrement
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {

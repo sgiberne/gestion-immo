@@ -1,6 +1,12 @@
 // Archive ZIP minimale (sans compression : les PDF sont déjà compressés), sans dépendance.
 import { crc32 } from "node:zlib";
 
+/** Nom de fichier sûr pour un chemin dans l'archive (ni séparateur, ni « .. », ni point ou espace final). */
+export const safeName = (s: string): string => {
+  const name = [...s].map((c) => (c < " " || '\\/:*?"<>|'.includes(c) ? "-" : c)).join("").replace(/[. ]+$/, "").trim();
+  return name.replace(/^\.+$/, "") || "document";
+};
+
 export interface ZipFile { name: string; data: Buffer }
 
 /** Date et heure au format MS-DOS, pour les en-têtes ZIP. */

@@ -47,12 +47,12 @@ export function upsertEntry(
   );
 }
 
-/** Une opération identique (logement, catégorie, type, date, libellé, montant) existe-t-elle déjà ? */
-export function entryExists(
+/** Nombre d'opérations de même catégorie, type, date et montant, quel que soit leur libellé. */
+export function countSameAmountOnDate(
   propertyId: string, categoryId: string, e: ReturnType<typeof cleanEntry>,
-): boolean {
-  return !!row(
-    "SELECT id FROM entries WHERE property_id = ? AND category_id = ? AND kind = ? AND date = ? AND label = ? AND cents = ?",
-    propertyId, categoryId, e.kind, e.date, e.label, e.cents,
-  );
+): number {
+  return row<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM entries WHERE property_id = ? AND category_id = ? AND kind = ? AND date = ? AND cents = ?",
+    propertyId, categoryId, e.kind, e.date, e.cents,
+  )?.n ?? 0;
 }

@@ -5,7 +5,7 @@ import { HttpError } from "./validation";
 export interface ExternalDocument {
   id: string;
   title: string;
-  /** AAAA-MM-JJ */
+  /** AAAA-MM-JJ, ou "" si le site n'en donne pas. */
   date: string;
   /** Nom du classeur qui contient le document. */
   folder: string;
@@ -44,46 +44,76 @@ export async function connect(): Promise<Session> {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ login, password }),
+    // une redirection ferait perdre le cookie de session : on le lit sur la réponse d'origine
+    redirect: "manual",
   });
+  await res.body?.cancel();
   const cookie = res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
-  if (res.status === 401 || res.status === 403 || (res.ok && !cookie)) {
+  if (res.status === 401 || res.status === 403 || (res.status < 400 && !cookie)) {
     throw new HttpError(502, "Le site externe a refusé les identifiants du fichier .env.");
   }
-  if (!res.ok) throw new HttpError(502, `Connexion au site externe impossible (code ${res.status}).`);
+  if (res.status >= 400) throw new HttpError(502, `Connexion au site externe impossible (code ${res.status}).`);
   return { base, cookie };
 }
 
 async function getFrom(s: Session, path: string): Promise<Response> {
   const res = await send(s.base + path, { headers: { cookie: s.cookie } });
-  if (!res.ok) throw new HttpError(502, `Le site externe a refusé la requête (code ${res.status}).`);
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new HttpError(502, `Le site externe a refusé la requête (code ${res.status}).`);
+  }
   return res;
 }
 
 interface FolderInfo { id: number; nom: string; fileCount: number }
-interface DocumentInfo { id: number; title: string; file_name: string; mime_type: string; date_commit: string }
+interface DocumentInfo { id: number; title: string; file_name: string; mime_type: string; date_commit?: string | null }
 
 const SORT = "sortColumn=date_commit&sortOrder=DESC";
+const PAGE_SIZE = 100;
+/** Garde-fou contre un site qui répondrait indéfiniment de nouveaux documents. */
+const MAX_PAGES = 50;
 
-/** Tous les PDF de tous les classeurs, du plus récent au plus ancien. */
-export async function listExternalDocuments(s?: Session): Promise<ExternalDocument[]> {
-  s ??= await connect();
-  const root = (await (await getFrom(s, `/api/extranet/coproprietaire/documents/classeur?${SORT}`)).json()) as {
+/** AAAA-MM-JJ tiré de la date du site, ou "" si elle manque ou n'est pas lisible. */
+const isoDay = (raw: unknown): string => {
+  const day = typeof raw === "string" ? raw.slice(0, 10) : "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : "";
+};
+
+/**
+ * Tous les documents d'un classeur. On ne se fie pas à la taille de page réellement appliquée par le site :
+ * on lit les pages jusqu'à avoir les `expected` documents annoncés par le classeur, ou jusqu'à une page qui
+ * n'apporte rien de nouveau (page vide, ou site qui ignorerait le numéro de page).
+ */
+async function folderDocuments(s: Session, folderId: number, expected: number): Promise<DocumentInfo[]> {
+  const byId = new Map<number, DocumentInfo>();
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const res = await getFrom(
+      s, `/api/extranet/coproprietaire/documents/classeur/${folderId}?${SORT}&itemCountPerPage=${PAGE_SIZE}&currentPageNumber=${page}`);
+    const batch = ((await res.json()) as { data?: { Documents?: DocumentInfo[] } }).data?.Documents ?? [];
+    const before = byId.size;
+    for (const d of batch) byId.set(d.id, d);
+    if (byId.size === before || byId.size >= expected) break; // plus rien de nouveau, ou tout le classeur est lu
+  }
+  return [...byId.values()];
+}
+
+/** Tous les PDF de tous les classeurs, du plus récent au plus ancien (date vide en dernier). */
+export async function listExternalDocuments(existing?: Session): Promise<ExternalDocument[]> {
+  const session = existing ?? await connect();
+  const root = (await (await getFrom(session, `/api/extranet/coproprietaire/documents/classeur?${SORT}`)).json()) as {
     allClasseurs?: Record<string, FolderInfo>;
   };
   const folders = Object.values(root.allClasseurs ?? {}).filter((f) => f.fileCount > 0);
   const lists = await Promise.all(
-    folders.map(async (f) => {
-      const res = await getFrom(s, `/api/extranet/coproprietaire/documents/classeur/${f.id}?${SORT}&itemCountPerPage=100&currentPageNumber=1`);
-      const body = (await res.json()) as { data?: { Documents?: DocumentInfo[] } };
-      return (body.data?.Documents ?? [])
+    folders.map(async (f) =>
+      (await folderDocuments(session, f.id, f.fileCount))
         .filter((d) => d.mime_type === "application/pdf")
         .map((d): ExternalDocument => ({
           id: String(d.id),
           title: d.title || d.file_name,
-          date: String(d.date_commit).slice(0, 10),
+          date: isoDay(d.date_commit),
           folder: f.nom,
-        }));
-    }),
+        }))),
   );
   return lists.flat().sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title));
 }
