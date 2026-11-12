@@ -40,15 +40,39 @@ export async function renderOperations(box: HTMLElement): Promise<void> {
     </section>
     <section class="card">
       <h2>Historique</h2>
+      <div class="pager" id="pager"></div>
       <table>
         <thead><tr><th>Date</th><th>Catégorie</th><th>Libellé</th><th class="num">Montant</th><th></th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
     </section>`;
 
+  // Pagination par année : on affiche une année à la fois (par défaut l'année en cours, sinon la plus récente).
+  const yearsOf = (): string[] => [...new Set(entries.map((e) => e.date.slice(0, 4)))].sort().reverse();
+  let year = today().slice(0, 4);
+  const fixYear = (): void => {
+    const years = yearsOf();
+    if (years.length && !years.includes(year)) year = years.find((y) => y < year) ?? years[0];
+  };
+  fixYear();
+
+  const drawPager = (): void => {
+    const years = yearsOf();
+    const i = years.indexOf(year);
+    $(box, "#pager").innerHTML = years.length
+      ? `<button type="button" class="ghost" data-year="${years[i + 1] ?? ""}" ${i < years.length - 1 ? "" : "disabled"}>← ${years[i + 1] ?? ""}</button>
+         <select id="year" aria-label="Année">${years.map((y) => `<option value="${y}" ${y === year ? "selected" : ""}>${y}</option>`).join("")}</select>
+         <button type="button" class="ghost" data-year="${years[i - 1] ?? ""}" ${i > 0 ? "" : "disabled"}>${years[i - 1] ?? ""} →</button>
+         <span class="muted">${entries.filter((e) => e.date.startsWith(year)).length} opération(s)</span>`
+      : "";
+  };
+
   const drawRows = (): void => {
-    $(box, "#rows").innerHTML = entries.length
-      ? entries
+    fixYear();
+    drawPager();
+    const shown = entries.filter((e) => e.date.startsWith(year));
+    $(box, "#rows").innerHTML = shown.length
+      ? shown
           .map((e) => `<tr>
               <td>${frDate(e.date)}</td>
               <td>${escapeHtml(e.category)}</td>
@@ -63,6 +87,18 @@ export async function renderOperations(box: HTMLElement): Promise<void> {
       : `<tr><td colspan="5" class="empty">Aucune opération saisie.</td></tr>`;
   };
   drawRows();
+
+  $(box, "#pager").addEventListener("click", (ev) => {
+    const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>("button[data-year]");
+    if (!btn?.dataset.year) return;
+    year = btn.dataset.year;
+    drawRows();
+  });
+  $(box, "#pager").addEventListener("change", (ev) => {
+    if ((ev.target as HTMLElement).id !== "year") return;
+    year = (ev.target as HTMLSelectElement).value;
+    drawRows();
+  });
 
   let editingId: string | null = null;
   const form = $<HTMLFormElement>(box, "#form");
@@ -105,6 +141,7 @@ export async function renderOperations(box: HTMLElement): Promise<void> {
       return;
     }
     setEditing(null);
+    year = payload.date.slice(0, 4);
     drawRows();
   }));
 

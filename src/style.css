@@ -92,3 +92,7 @@ td input.edit { width: 100%; box-sizing: border-box; }
 .pie-legend li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: .9rem; }
 .legend-val { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
 @media (max-width: 520px) { .pies { grid-template-columns: 1fr; } }
+
+/* Pagination par année (historique des opérations) */
+.pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.pager .muted { margin: 0 0 0 auto; }
